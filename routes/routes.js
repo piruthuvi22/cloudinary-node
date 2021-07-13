@@ -1,35 +1,35 @@
 const router = require("express").Router();
-const multer = require("multer");
 const cloudinary = require("../Cloudinary/cloudinary");
-const upload = require("../multerEngine/engine");
+const MulterUploader = require("../multerEngine/engine");
 
 const User = require("../Modal/modal");
 
-router.post("/", upload.single("quiz"), async (req, res) => {
+// upload the file with name of "profile-img"
+router.post("/", MulterUploader.single("profile-img"), async (req, res) => {
   if (req.file !== undefined) {
+    // Save user with profile picture
     try {
+      // upload the file
       const result = await cloudinary.uploader.upload(req.file.path, {
         public_id: req.file.filename,
         use_filename: true,
-        transformation: [{ gravity: "auto", crop: "fill" }],
       });
       console.log(result);
       const USER = new User({
-        userID: req.body.userID,
-        userName: req.body.userName,
+        Username: req.body.Username,
         cloudinaryID: result.public_id,
         cloudinaryURL: result.secure_url,
       });
       await USER.save();
       res.json(USER);
     } catch (error) {
-      res.send(error);
+      res.json(error);
     }
   } else {
+    // Save user without profile picture
     try {
       const USER = new User({
-        userID: req.body.userID,
-        userName: req.body.userName,
+        Username: req.body.Username,
       });
       await USER.save();
       res.json(USER);
@@ -39,32 +39,16 @@ router.post("/", upload.single("quiz"), async (req, res) => {
   }
 });
 
-router.get("/", async (req, res) => {
+router.delete("/", async (req, res) => {
   try {
-    const user = await User.findOne({ userID: req.body.userID });
-    res.json(user);
-  } catch (error) {
-    res.send(error);
-  }
-});
+    // public_id be like this > "profile-img-1626153373071"
+    const public_id = req.body.public_id;
+    // Remove the file with the cloudinary_id. see the example below
+    await cloudinary.uploader.destroy(public_id);
 
-router.put("/", upload.single("quiz"), async (req, res) => {
-  try {
-    const user = await User.findOne({ userID: req.body.userID });
-    console.log(user);
-    const cloudinary_id = user.cloudinaryID;
-    await cloudinary.uploader.destroy(cloudinary_id);
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      public_id: req.file.filename,
-      use_filename: true,
-    });
-
-    user.cloudinaryID = result.public_id;
-    user.cloudinaryURL = result.secure_url;
-    const res = await user.save();
-    res.json(res);
+    res.json("File deleted");
   } catch (error) {
-    res.send(error);
+    res.json(error);
   }
 });
 module.exports = router;
